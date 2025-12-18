@@ -5,23 +5,25 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <title>Zuordnungsspiel</title>
 <style>
-  body{margin:0;padding:12px;font-family:Arial;background:#fff}
+  body{margin:0;padding:12px;font-family:Arial;background:#fff; overscroll-behavior:none}
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-  .slot{position:relative;border:3px solid #ddd;border-radius:14px;padding:6px}
-  .slot img{width:100%;display:block;border-radius:10px}
+  .card{border:3px solid #ddd;border-radius:14px;padding:8px}
+  .card img{width:100%;display:block;border-radius:10px}
+  .dropzone{
+    margin-top:10px; min-height:60px;
+    border:3px dashed #bbb; border-radius:14px;
+    background:#fafafa; display:flex; align-items:center; justify-content:center;
+    padding:6px; position:relative; z-index:2;
+  }
+  .dropzone.filled{border-style:solid}
   .words{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
   .word{
-    border:3px solid #999;
-    border-radius:18px;
-    padding:12px 18px;
-    font-size:26px;
-    background:#fafafa;
-    touch-action:none;
-    user-select:none;
-    -webkit-user-select:none;
-    -webkit-touch-callout:none;
-    display:inline-flex;
+    border:3px solid #999;border-radius:18px;padding:12px 18px;
+    font-size:26px;background:#f3f3f3;
+    touch-action:none; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
+    display:inline-flex; align-items:baseline;
     transform:translate3d(0,0,0);
+    position:relative; z-index:1;
   }
   .blue{color:#1e6cff}
   .red{color:#d40000}
@@ -30,64 +32,78 @@
 </head>
 <body>
 
-<div class="grid">
-  <div class="slot" data-word="ängstlich"><img src="img1.png"></div>
-  <div class="slot" data-word="stolz"><img src="img2.png"></div>
-  <div class="slot" data-word="überrascht"><img src="img3.png"></div>
-  <div class="slot" data-word="traurig"><img src="img4.png"></div>
-  <div class="slot" data-word="verwirrt"><img src="img5.png"></div>
-  <div class="slot" data-word="dankbar"><img src="img6.png"></div>
-  <div class="slot" data-word="müde"><img src="img7.png"></div>
-  <div class="slot" data-word="nervös"><img src="img8.png"></div>
-  <div class="slot" data-word="gelangweilt"><img src="img9.png"></div>
+<div class="grid" id="grid">
+  <div class="card"><img src="img1.png"><div class="dropzone" data-word="verwirrt"></div></div>
+  <div class="card"><img src="img2.png"><div class="dropzone" data-word="dankbar"></div></div>
+  <div class="card"><img src="img3.png"><div class="dropzone" data-word="nervös"></div></div>
+
+  <div class="card"><img src="img4.png"><div class="dropzone" data-word="überrascht"></div></div>
+  <div class="card"><img src="img5.png"><div class="dropzone" data-word="müde"></div></div>
+  <div class="card"><img src="img6.png"><div class="dropzone" data-word="ängstlich"></div></div>
+
+  <div class="card"><img src="img7.png"><div class="dropzone" data-word="gelangweilt"></div></div>
+  <div class="card"><img src="img8.png"><div class="dropzone" data-word="traurig"></div></div>
+  <div class="card"><img src="img9.png"><div class="dropzone" data-word="stolz"></div></div>
 </div>
 
 <div class="words" id="words"></div>
 
 <script>
-// alternating blue/red: blau-rot-blau for 3 syllables
 const WORDS=[
- {w:"ängstlich", s:["ängst","lich"]},
- {w:"stolz", s:["stolz"]},
- {w:"überrascht", s:["ü","ber","rascht"]},     // blau rot blau
- {w:"traurig", s:["trau","rig"]},
  {w:"verwirrt", s:["ver","wirrt"]},
  {w:"dankbar", s:["dank","bar"]},
- {w:"müde", s:["mü","de"]},
  {w:"nervös", s:["ner","vös"]},
- {w:"gelangweilt", s:["ge","lang","weilt"]}    // blau rot blau
+ {w:"überrascht", s:["ü","ber","rascht"]},      // blau-rot-blau
+ {w:"müde", s:["mü","de"]},
+ {w:"ängstlich", s:["ängst","lich"]},
+ {w:"gelangweilt", s:["ge","lang","weilt"]},    // blau-rot-blau
+ {w:"traurig", s:["trau","rig"]},
+ {w:"stolz", s:["stolz"]}
 ];
 
 const wrap=document.getElementById("words");
-
 function shuffle(a){ for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
-// --- speech (must be called from user gesture) ---
 function speak(text){
   try{
     window.speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance(text);
-    u.lang="de-DE";
-    u.rate=0.95;
+    u.lang="de-DE"; u.rate=0.95;
     window.speechSynthesis.speak(u);
   }catch(e){}
 }
 
-// --- Drag & Drop (iPad Safari stable overlay) ---
+shuffle([...WORDS]).forEach(o=>{
+  const d=document.createElement("div");
+  d.className="word";
+  d.dataset.word=o.w;
+  o.s.forEach((sy,i)=>{
+    const sp=document.createElement("span");
+    sp.textContent=sy;
+    sp.className=(i%2===0)?"blue":"red"; // alternating, start blue
+    d.appendChild(sp);
+  });
+  wrap.appendChild(d);
+});
+
 let dragEl=null, startX=0, startY=0, baseLeft=0, baseTop=0, moved=false;
 
 function backToWords(el){
   el.classList.remove("dragging");
   el.style.position="relative";
   el.style.left=""; el.style.top=""; el.style.zIndex="";
+  el.style.pointerEvents="auto";
   wrap.appendChild(el);
 }
-
-function placeOnSlot(el,slot){
+function placeIntoZone(el, zone){
+  const existing = zone.querySelector(".word");
+  if(existing){ backToWords(existing); }
+  zone.appendChild(el);
+  zone.classList.add("filled");
   el.classList.remove("dragging");
   el.style.position="relative";
   el.style.left=""; el.style.top=""; el.style.zIndex="";
-  slot.appendChild(el);
+  el.style.pointerEvents="auto";
 }
 
 function onDown(e){
@@ -112,7 +128,7 @@ function onMove(e){
   if(!dragEl) return;
   e.preventDefault();
   const dx=e.clientX-startX, dy=e.clientY-startY;
-  if(Math.abs(dx)+Math.abs(dy)>8) moved=true;
+  if(Math.abs(dx)+Math.abs(dy)>6) moved=true;
   dragEl.style.left=(baseLeft+dx)+"px";
   dragEl.style.top=(baseTop+dy)+"px";
 }
@@ -122,47 +138,36 @@ function onUp(e){
   e.preventDefault();
 
   if(!moved){
-    // tap => speak
-    backToWords(dragEl);
     speak(dragEl.dataset.word);
-    dragEl=null; 
+    backToWords(dragEl);
+    dragEl=null;
     return;
   }
 
   const x=e.clientX, y=e.clientY;
-  let placed=false;
-  document.querySelectorAll(".slot").forEach(slot=>{
-    const r=slot.getBoundingClientRect();
-    if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom){
-      if(slot.dataset.word===dragEl.dataset.word){
-        placeOnSlot(dragEl,slot);
-        placed=true;
-      }
-    }
-  });
+  // make dragged element transparent for hit-test
+  dragEl.querySelectorAll("*").forEach(n=>n.style.pointerEvents="none");
+  dragEl.style.pointerEvents="none";
+  const under = document.elementFromPoint(x, y);
+  dragEl.style.pointerEvents="auto";
+  dragEl.querySelectorAll("*").forEach(n=>n.style.pointerEvents="");
 
-  if(!placed) backToWords(dragEl);
+  const zone = under ? under.closest(".dropzone") : null;
+  if(zone && zone.dataset.word === dragEl.dataset.word){
+    placeIntoZone(dragEl, zone);
+  }else{
+    backToWords(dragEl);
+  }
   dragEl=null;
 }
 
-// Create tiles and attach pointerdown
-shuffle([...WORDS]).forEach(o=>{
-  const d=document.createElement("div");
-  d.className="word";
-  d.dataset.word=o.w;
-  o.s.forEach((sy,i)=>{
-    const sp=document.createElement("span");
-    sp.textContent=sy;
-    sp.className=(i%2===0)?"blue":"red";
-    d.appendChild(sp);
-  });
-  d.addEventListener("pointerdown", onDown, {passive:false});
-  wrap.appendChild(d);
+document.querySelectorAll(".word").forEach(el=>{
+  el.addEventListener("pointerdown", onDown, {passive:false});
 });
-
 document.addEventListener("pointermove", onMove, {passive:false});
 document.addEventListener("pointerup", onUp, {passive:false});
 document.addEventListener("pointercancel", onUp, {passive:false});
 </script>
+
 </body>
 </html>
